@@ -1,0 +1,22 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Register
+{% endblock %}
+
+{% block main %}
+    <form action="/quoted" method="post">
+        <table allign="center" style="width:80%" cellpadding="10"cellspacing="10">
+            <thead>
+              <tr>
+                <th scope="col"><b>Symbol</b></th>
+                <th scope="col"><b>Price</b</th>
+              </tr>
+            </thead>
+              <tr>
+                <td>{{stock["symbol"]}}</td>
+                <td>{{stock["price"]}}</td>
+              </tr>
+        </table>
+    </form>
+{% endblock %}

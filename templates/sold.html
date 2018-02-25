@@ -1,0 +1,43 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Bought
+{% endblock %}
+
+{% block main %}
+    <form action="/sold" method="post">
+          <table allign="center" style="width:100%" cellpadding="10"cellspacing="10">
+            <td align="position"valign="position"></td>
+            <thead>
+              <tr>
+                <th scope="col">Symbol</th>
+                <th scope="col">Name</th>
+                <th scope="col">Shares</th>
+                <th scope="col">Price</th>
+                <th scope="col">TOTAL</th>
+              </tr>
+            </thead>
+            <tr>
+              <td>{{data["name"]}}</td>
+              <td>{{data["symbol"]}}</td>
+              <td>{{data["stocks"]}}</td>
+              <td>{{data["price"]}}</td>
+              <td>{{data["revenue"]}}</td>
+            </tr>
+            <tr>
+              <td>CASH</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>{{data["cash"]}}</td>
+           </tr>
+           <tr>
+              <td>TOTAL</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td>{{data["total"]}}</td>
+           </tr>
+          </table>
+    </form>
+{% endblock %}

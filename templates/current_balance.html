@@ -1,0 +1,24 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Deposit
+{% endblock %}
+
+{% block main %}
+    <form action="/deposit" method="post">
+          <table allign="center" style="width:80%" cellpadding="10"cellspacing="10">
+              <tr>
+                <th>Cash before deposit</th>
+                <td>{{data["cash"]}}</td>
+              </tr>
+            <tr>
+              <th>Deposit</th>
+              <td>{{data["deposit"]}}</td>
+            </tr>
+            <tr>
+              <th>Current balance</th>
+              <td>{{data["current_cash"]}}</td>
+           </tr>
+          </table>
+    </form>
+{% endblock %}
