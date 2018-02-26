@@ -47,14 +47,52 @@ class DBrequest:
 
   # def select_history(self,):
 
-  # def select_all(self,):
+  def select_username(self, username):
+    return db.execute("SELECT * FROM users WHERE username = :username", username=username)
+
+  def select_all(self, database, id):
+    if database == "transactions":
+      return db.execute("SELECT * FROM transactions WHERE userid=:id ORDER BY date DESC", id=id)
+    if database == "users":
+      return db.execute("SELECT * FROM users WHERE userid=:id ORDER BY userid DESC", id=id)
 
   def update_user(self, cash, id):
     return db.execute("UPDATE " + self.users + " SET cash=:cash WHERE id=:id", cash=cash, id=id)
 
-  # def insert_transaction(self,):
+  def insert_transaction(self, symbol, id, amount, price, cost):
+    return db.execute("INSERT INTO " + self.transactions + " (symbol, userid, amount, price, cost) VALUES (symbol=:symbol, userid=:id, amount=:amount, price=:price, cost:cost)", 
+        symbol=symbol, id=id, amount=amount, cost=cost, price=price)
 
   # def insert_hash(self,):
+
+
+class RequestValidator():
+  def __init__(self, form):
+    self.form = form
+
+  def validate_buy(self):
+    if not lookup(self.form.get("symbol")) or not self.form.get("symbol"):
+      return apology("wrong symbol")
+    elif not self.form.get("shares"):
+      return apology("no number of shares")
+    elif int(self.form.get("shares")) < 0:
+      return apology("number of shares must be a positive integer")
+    else:
+      return None
+
+class BalanceValidator():
+  def __init__(self, form):
+    self.form = form
+
+  def validate_cash(self):
+    cash = (DBrequest().select_cash(session["user_id"]))[0]["cash"]
+    price = round(float((lookup(self.form.get("symbol")))["price"]),2)
+    cost = self.form.get("shares") * price
+    diff = cash - cost
+    if diff < 0:
+      return None
+    else:
+      return diff, cost, price
 
 
 @app.route("/deposit", methods=["GET", "POST"])
@@ -104,84 +142,40 @@ def index():
     return render_template("index.html", stocks=stocks, cash=cash, total=total)
 
 
-class RequestValidator():
-  def __init__(self, form):
-    self.form = form
-
-  def validate_buy(self):
-    if not lookup(self.form.get("symbol")) or not self.form.get("symbol"):
-      return apology("wrong symbol")
-    elif not self.form.get("shares"):
-      return apology("no number of shares")
-    elif int(self.form.get("shares")) < 0:
-      return apology("number of shares must be a positive integer")
-    else:
-      return None
-
-class BalanceValidator():
-  def __init__(self, connector, form):
-    self.connector = connector
-    self.form = form
-
-  def validate_cash(self, cost):
-    cash = self.connector.get_cash(session["user_id"])
-    cash = round(float(cash[0]["cash"]),2)
-    diff = round(cash - cost,2)
-    if diff < 0:
-      return apology("you have not enough money to buy so many stocks")
-    else:
-      return diff
-
-
-class DbConnector():
-  def __init__(self, db):
-    self.db = db
-
-  def get_cash(self, user_id):
-    return db.execute("SELECT cash FROM users WHERE id = :user_id", user_id=user_id)
-
-  def buy(self, symbol, user_id, amount, cost, price):
-    return db.execute("INSERT INTO transactions (symbol, userid, amount, price, cost) VALUES (:symbol, :userid, :amount, :price, :cost)", 
-        symbol=symbol, userid=user_id, amount=amount, cost=cost, price=price)
-
-  def set_cash(self, diff, user_id):
-    db.execute("UPDATE users SET cash=:cash WHERE id=:userid", cash=diff, userid=user_id)
-
-@app.route("/buy", methods=["GET", "POST"])
-@login_required
-def buy():
-    """Buy shares of stock"""
-    if request.method == "POST":
-      connector = DbConnector(db)
-      validator = RequestValidator(form)
-      balance_validator = BalanceValidator(form, connector)
-      cost = round(float(self.form.get("shares")) * float((lookup(self.form.get("symbol")))["price"]),2)
-      price = round(float((lookup(request.form.get("symbol")))["price"]),2)
-      if not validator.validate_buy():
-        return validator.validate_buy()
-      if not balance_validator.validate_cash():
-        return balance_validator.validate_cash()
-      diff = balance_validator.validate_cash()
-      data = {}
-      bought = connector.buy(request.form.get("symbol"), session["user_id"], request.form.get("shares"), (-cost), price)
+# @app.route("/buy", methods=["GET", "POST"])
+# @login_required
+# def buy():
+#     """Buy shares of stock"""
+#     if request.method == "POST":
+#       validator = RequestValidator(request.form)
+  
+#       if not validator.validate_buy():
+#         return validator.validate_buy()
+#       if not balance_validator.validate_cash():
+#         return apology("you have not enough money to buy so many stocks")
+#       diff, cost, price = BalanceValidator(request.form).validate_cash()
       
-      data = {"name":   lookup(request.form.get("symbol"))["name"],
-              "symbol": request.form.get("symbol"),
-              "stocks": request.form.get("shares"),
-              "price":  lookup(request.form.get("symbol"))["price"],
-              "cost":   cost,
-              "cash":   diff,
-              "total":  (cost+diff),
-      }
-      return render_template("bought.html", data=data)
-    else:
-      return render_template("buy.html")
+#       name = lookup(request.form.get("symbol"))["name"]
+
+#       data = {"symbol": request.form.get("symbol"),
+#               "stocks": request.form.get("shares"),
+#               "price":  price,
+#               "cost":   cost,
+#               "cash":   diff,
+#               "total":  (cost+diff),
+#               "name": name,
+#       }
+#       DBrequest().insert_transaction(data["symbol"], session["user_id"], data["stocks"], data["price"], -data["cost"])  
+#       return render_template("bought.html", data=data)
+#     else:
+#       return render_template("buy.html")
 
 
 @app.route("/history")
 @login_required
 def history():
-    rows = db.execute("SELECT id, symbol, amount, price, cost, date FROM transactions WHERE userid=:userid ORDER BY date DESC", userid=session["user_id"])
+    rows = DBrequest().select_all("transactions", session["user_id"])
+
     for row in rows:
       if row['amount'] < 0:
         row['transaction'] = "sale"
@@ -209,8 +203,7 @@ def login():
             return apology("must provide password", 403)
 
         # Query database for username
-        rows = db.execute("SELECT * FROM users WHERE username = :username",
-                          username=request.form.get("username"))
+        rows = DBrequest().select_username(request.form.get("username"))
 
         # Ensure username exists and password is correct
         if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
