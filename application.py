@@ -34,26 +34,48 @@ db = SQL("sqlite:///finance.db")
 # con = SQL.connect("finance.db")
 # db = con.cursor()
 
+class DBrequest:
+  def __init__(self):
+    self.users = "users"
+    self.transactions = "transactions"
+
+  def select_cash(self, id):
+    return db.execute("SELECT cash FROM " + self.users + " WHERE id=:id", id=id)
+
+  # def select_index(self,):
+
+  # def select_history(self,):
+
+  # def select_all(self,):
+
+  def update_user(self, cash, id):
+    return db.execute("UPDATE " + self.users + " SET cash=:cash WHERE id=:id", cash=cash, id=id)
+
+  # def insert_transaction(self,):
+
+  # def insert_hash(self,):
+
 
 @app.route("/deposit", methods=["GET", "POST"])
 @login_required
 def deposit():
   """Deposit money"""
   if request.method == "POST":
-    if not request.form.get("amount") or float(request.form.get("amount"))<=0:
+    if not request.form.get("amount") or float(request.form.get("amount"))<=0: 
       return apology("wrong request")
     else:
-      row = db.execute("SELECT cash FROM users WHERE id=:userid", userid=session["user_id"])
-      money = round(row[0]["cash"] + float(request.form.get("amount")),2)
-      db.execute("UPDATE users SET cash=:cash WHERE id=:userid", cash=money, userid=session["user_id"])
-      data = {"cash": round(row[0]["cash"],2),
-              "deposit": round(float(request.form.get("amount")),2),
-              "current_cash": money,
+      row = DBrequest().select_cash(session["user_id"])
+      cash = round(row[0]["cash"],2)
+      deposit = round(float(request.form.get("amount")),2)
+      new_cash = (cash + deposit)
+      DBrequest().update_user(new_cash, session["user_id"])
+      data = {"cash": cash,
+              "deposit": deposit,
+              "current_cash": new_cash,
               }
       return render_template("current_balance.html", data=data)
   else:
     return render_template("deposit.html")
-  """Show portfolio of stocks"""
 
 
 @app.route("/")
@@ -133,7 +155,7 @@ def buy():
       validator = RequestValidator(form)
       balance_validator = BalanceValidator(form, connector)
       cost = round(float(self.form.get("shares")) * float((lookup(self.form.get("symbol")))["price"]),2)
-      price = round(float((lookup(request.form.get("symbol")))["price"]),2))
+      price = round(float((lookup(request.form.get("symbol")))["price"]),2)
       if not validator.validate_buy():
         return validator.validate_buy()
       if not balance_validator.validate_cash():
