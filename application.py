@@ -42,7 +42,8 @@ class DBrequest:
   def select_cash(self, id):
     return db.execute("SELECT cash FROM " + self.users + " WHERE id=:id", id=id)
 
-  # def select_index(self,):
+  def select_symbol(self, id):
+    return db.execute("SELECT symbol, sum(amount) as shares FROM " + self.transactions + " WHERE userid=:id GROUP BY symbol HAVING shares > 0", id=id)
 
   # def select_history(self,):
 
@@ -82,24 +83,24 @@ def deposit():
 @login_required
 def index():
     """Show portfolio of stocks"""
-    rows = db.execute("SELECT symbol, sum(amount) as shares FROM transactions WHERE userid= :user_id GROUP BY symbol", 
-      user_id=session["user_id"])
+    rows = DBrequest().select_symbol(session["user_id"])
     stocks = []
     total = 0
     print(rows)
     for row in rows:
-      if int(row["shares"]) > 0:
-        price = round((lookup(row["symbol"]))["price"],2)
-        total += float(price) * row["shares"]
-        stocks.append({
-          "symbol": row["symbol"],
-          "shares": row["shares"],
-          "price": price, 
-          "total": float(price) * row["shares"]
+      symbol = row["symbol"]
+      shares = row["shares"]
+      price = round((lookup(symbol))["price"],2)
+      total += price * shares
+      stocks.append({
+        "symbol": symbol,
+        "shares": shares,
+        "price": price, 
+        "total_value": price * shares,
           })
-    cash = round(db.execute("SELECT cash FROM users WHERE id= :user_id LIMIT 1", user_id=session["user_id"])[0]["cash"],2)
-    total = round(total + db.execute("SELECT cash FROM users WHERE id= :user_id LIMIT 1", user_id=session["user_id"])[0]["cash"],2)
-    
+    cash = DBrequest().select_cash(session["user_id"])[0]["cash"]
+    total = total + cash
+
     return render_template("index.html", stocks=stocks, cash=cash, total=total)
 
 
