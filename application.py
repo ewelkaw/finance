@@ -35,36 +35,34 @@ db = SQL("sqlite:///finance.db")
 # db = con.cursor()
 
 class DBrequest:
-  def __init__(self):
-    self.users = "users"
-    self.transactions = "transactions"
 
   def select_cash(self, id):
-    return db.execute("SELECT cash FROM " + self.users + " WHERE id=:id", id=id)
+    return db.execute("SELECT cash FROM users WHERE id=:id", id=id)
 
-  def select_symbol(self, id):
-    return db.execute("SELECT symbol, sum(amount) as shares FROM " + self.transactions + " WHERE userid=:id GROUP BY symbol HAVING shares > 0", id=id)
+  def select_index(self, id):
+    return db.execute("SELECT symbol, sum(amount) as shares FROM transactions WHERE userid=:id GROUP BY symbol HAVING shares > 0;", id=id)
 
-  # def select_history(self,):
+  def select_symbol(self, id, symbol):
+    return db.execute("SELECT symbol, sum(amount) as shares FROM transactions WHERE userid=:id AND symbol=:symbol GROUP BY symbol;", id=id, symbol=symbol)
 
   def select_username(self, username):
-    return db.execute("SELECT * FROM users WHERE username = :username", username=username)
+    return db.execute("SELECT * FROM users WHERE username = :username;", username=username)
 
   def select_all(self, database, id):
     if database == "transactions":
-      return db.execute("SELECT * FROM transactions WHERE userid=:id ORDER BY date DESC", id=id)
+      return db.execute("SELECT * FROM transactions WHERE userid=:id ORDER BY date DESC;", id=id)
     if database == "users":
-      return db.execute("SELECT * FROM users WHERE userid=:id ORDER BY userid DESC", id=id)
+      return db.execute("SELECT * FROM users WHERE userid=:id ORDER BY userid DESC;", id=id)
 
   def update_user(self, cash, id):
-    return db.execute("UPDATE " + self.users + " SET cash=:cash WHERE id=:id", cash=cash, id=id)
+    return db.execute("UPDATE users SET cash=:cash WHERE id=:id;", cash=cash, id=id)
 
   def insert_transaction(self, symbol, id, amount, price, cost):
-    return db.execute("INSERT INTO " + self.transactions + " (symbol, userid, amount, price, cost) VALUES (symbol=:symbol, userid=:id, amount=:amount, price=:price, cost:cost)", 
-        symbol=symbol, id=id, amount=amount, cost=cost, price=price)
+    return db.execute("INSERT INTO transactions (symbol, userid, amount, price, cost) VALUES (:symbol, :id, :amount, :price, :cost);", 
+        symbol=symbol, id=id, amount=amount, price=price, cost=cost)
 
   def insert_hash(self, username, hash):
-     return db.execute("INSERT INTO users (username, hash) VALUES (:username, :hash)", username=username, hash=hash)
+     return db.execute("INSERT INTO users (username, hash) VALUES (:username, :hash);", username=username, hash=hash)
 
 
 class RequestValidator():
@@ -122,7 +120,7 @@ def deposit():
 @login_required
 def index():
     """Show portfolio of stocks"""
-    rows = DBrequest().select_symbol(session["user_id"])
+    rows = DBrequest().select_index(session["user_id"])
     stocks = []
     total = 0
     print(rows)
@@ -290,30 +288,28 @@ def sell():
       elif int(request.form.get("shares")) < 0:
         return apology("number of shares must be a positive integer")
       
-      avaliable_shares = db.execute("SELECT sum(amount) as shares FROM transactions WHERE symbol=:symbol AND userid=:userid GROUP BY :symbol", 
-        symbol=request.form.get("symbol"), userid=session["user_id"])
+      avaliable_shares = DBrequest().select_symbol(session["user_id"], request.form.get("symbol"))
+
       if len(avaliable_shares) == 0:
          return apology("you don't have such shares to sell")
+      
       elif int(avaliable_shares[0]["shares"]) < int(request.form.get("shares")):
         return apology("you don't have so many shares to sell")
       else:
-        data = {}
         price = (lookup(request.form.get("symbol")))["price"]
+        cash = (DBrequest().select_cash(session["user_id"]))[0]["cash"]
         revenue = float(request.form.get("shares")) * price
-        cash = db.execute("SELECT cash FROM users WHERE id = :user_id", user_id=session["user_id"])
-        cash = round(float(cash[0]["cash"]),2)
-        sold = db.execute("INSERT INTO transactions (symbol, userid, amount, price, cost) VALUES (:symbol, :userid, :amount, :price, :revenue)", 
-          symbol=request.form.get("symbol"), userid=session["user_id"], amount=(-int(request.form.get("shares"))), 
-          revenue=revenue, price=price)
-        db.execute("UPDATE users SET cash=:cash WHERE id=:userid", cash=(cash+revenue), userid=session["user_id"])
-        data = {"name":   lookup(request.form.get("symbol"))["name"],
+        data = {"price": price,
+                "name":   lookup(request.form.get("symbol"))["name"],
                 "symbol": request.form.get("symbol"),
                 "stocks": request.form.get("shares"),
-                "price":  lookup(request.form.get("symbol"))["price"],
-                "revenue":   revenue,
-                "cash":   cash,
-                "total": round(cash+revenue,2),
+                "revenue": revenue,
+                "cash": cash,
+                "total": cash+revenue,
         }
+        DBrequest().insert_transaction(request.form.get("symbol"), session["user_id"], (-int(request.form.get("shares"))), price, revenue)
+        DBrequest().update_user((cash+revenue), session["user_id"])
+
         return render_template("sold.html", data=data)
     else:
       return render_template("sell.html")
