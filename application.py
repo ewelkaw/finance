@@ -63,7 +63,8 @@ class DBrequest:
     return db.execute("INSERT INTO " + self.transactions + " (symbol, userid, amount, price, cost) VALUES (symbol=:symbol, userid=:id, amount=:amount, price=:price, cost:cost)", 
         symbol=symbol, id=id, amount=amount, cost=cost, price=price)
 
-  # def insert_hash(self,):
+  def insert_hash(self, username, hash):
+     return db.execute("INSERT INTO users (username, hash) VALUES (:username, :hash)", username=username, hash=hash)
 
 
 class RequestValidator():
@@ -263,8 +264,7 @@ def register():
         elif not request.form.get("password") == request.form.get("confirmation"):
             return apology("password and confirmed password must be the same", 403)
         
-        rows = db.execute("SELECT * FROM users WHERE username = :username", 
-          username=request.form.get("username"))
+        rows = DBrequest().select_username(request.form.get("username"))
         
         if len(rows) != 0:
             return apology("Sorry, there is such username in our database", 403) 
@@ -272,8 +272,7 @@ def register():
         password = request.form.get("password")
         password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=8)
 
-        db.execute("INSERT INTO users (username, hash) VALUES (:username, :hash)", 
-          username=request.form.get("username"), hash=password)
+        DBrequest().insert_hash(request.form.get("username"), password)
 
         # Redirect user to login page
         return redirect("/login")        
