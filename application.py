@@ -35,7 +35,6 @@ db = SQL("sqlite:///finance.db")
 # db = con.cursor()
 
 class DBrequest:
-
   def select_cash(self, id):
     return db.execute("SELECT cash FROM users WHERE id=:id", id=id)
 
@@ -70,12 +69,84 @@ class RequestValidator():
     self.form = form
 
   def validate_buy(self):
+    #Ensure you can buy
     if not lookup(self.form.get("symbol")) or not self.form.get("symbol"):
       return apology("wrong symbol")
+    
     elif not self.form.get("shares"):
       return apology("no number of shares")
+    
     elif int(self.form.get("shares")) < 0:
       return apology("number of shares must be a positive integer")
+    
+    else:
+      return None
+
+  def validate_deposit(self):
+    #Ensure you can deposit
+    if not self.form.get("amount") or float(request.form.get("amount"))<=0: 
+      return apology("wrong request")
+    
+    else:
+      return None
+
+  def validate_register(self):
+    #Ensure you can register
+    if not self.form.get("username"):
+        return apology("must provide username", 403)
+    
+    # Ensure password was submitted
+    elif not self.form.get("password"):
+        return apology("must provide password", 403)
+    
+    # Ensure password was confirmed
+    elif not self.form.get("confirmation"):
+        return apology("must confirm password", 403)
+    
+    elif not self.form.get("password") == self.form.get("confirmation"):
+        return apology("password and confirmed password must be the same", 403)
+    
+    elif  len(DBrequest().select_username(self.form.get("username"))) != 0:
+        return apology("Sorry, there is such username in our database", 403) 
+
+    else:
+      return None
+
+  def validate_login(self):
+    # Ensure username was submitted
+    if not self.form.get("username"):
+        return apology("must provide username", 403)
+
+    # Ensure password was submitted
+    elif not self.form.get("password"):
+        return apology("must provide password", 403)
+
+    # Query database for username
+    rows = DBrequest().select_username(self.form.get("username"))
+
+    # Ensure username exists and password is correct
+    if len(rows) != 1 or not check_password_hash(rows[0]["hash"], self.form.get("password")):
+        return apology("invalid username and/or password", 403)
+
+    else:
+      return None
+
+  def validate_sell(self, id):
+    # Ensure you can sell
+    if not self.form.get("shares") or not self.form.get("symbol"):
+      return apology("request incomplete")
+    
+    elif int(self.form.get("shares")) < 0:
+      return apology("number of shares must be a positive integer")
+    
+    avaliable_shares = DBrequest().select_symbol(id, self.form.get("symbol"))
+
+    if len(avaliable_shares) == 0:
+       return apology("you don't have such shares to sell")
+    
+    elif int(avaliable_shares[0]["shares"]) < int(self.form.get("shares")):
+      return apology("you don't have so many shares to sell")
+
     else:
       return None
 
@@ -88,8 +159,10 @@ class BalanceValidator():
     price = round(float((lookup(self.form.get("symbol")))["price"]),2)
     cost = float(self.form.get("shares")) * price
     diff = cash - cost
+    
     if diff < 0:
       return None
+    
     else:
       return diff, cost, price
 
@@ -99,13 +172,12 @@ class BalanceValidator():
 def deposit():
   """Deposit money"""
   if request.method == "POST":
-    if not request.form.get("amount") or float(request.form.get("amount"))<=0: 
-      return apology("wrong request")
-    else:
+    if not RequestValidator(request.form).validate_deposit():
       row = DBrequest().select_cash(session["user_id"])
       cash = round(row[0]["cash"],2)
       deposit = round(float(request.form.get("amount")),2)
       new_cash = (cash + deposit)
+      
       DBrequest().update_user(new_cash, session["user_id"])
       data = {"cash": cash,
               "deposit": deposit,
@@ -123,7 +195,8 @@ def index():
     rows = DBrequest().select_index(session["user_id"])
     stocks = []
     total = 0
-    print(rows)
+    cash = float(DBrequest().select_cash(session["user_id"])[0]["cash"])
+
     for row in rows:
       symbol = row["symbol"]
       shares = row["shares"]
@@ -135,10 +208,8 @@ def index():
         "price": float(price), 
         "total_value": float(price * shares),
           })
-    cash = float(DBrequest().select_cash(session["user_id"])[0]["cash"])
-    total = total + cash
 
-    return render_template("index.html", stocks=stocks, cash=cash, total=total)
+    return render_template("index.html", stocks=stocks, cash=cash, total=(total + cash))
 
 
 @app.route("/buy", methods=["GET", "POST"])
@@ -150,20 +221,20 @@ def buy():
         if not BalanceValidator(request.form).validate_cash():
           return apology("you have not enough money to buy so many stocks")
 
-      diff, cost, price = BalanceValidator(request.form).validate_cash()
-      name = lookup(request.form.get("symbol"))["name"]
+        diff, cost, price = BalanceValidator(request.form).validate_cash()
+        name = lookup(request.form.get("symbol"))["name"]
 
-      data = {"symbol": request.form.get("symbol"),
-              "stocks": request.form.get("shares"),
-              "price":  price,
-              "cost":   cost,
-              "cash":   diff,
-              "total":  (cost+diff),
-              "name": name,
-      }
-      DBrequest().insert_transaction(data["symbol"], session["user_id"], data["stocks"], data["price"], -data["cost"])  
-      DBrequest().update_user(diff, session["user_id"])
-      return render_template("bought.html", data=data)
+        data = {"symbol": request.form.get("symbol"),
+                "stocks": request.form.get("shares"),
+                "price":  price,
+                "cost":   cost,
+                "cash":   diff,
+                "total":  (cost+diff),
+                "name": name,
+        }
+        DBrequest().insert_transaction(data["symbol"], session["user_id"], data["stocks"], data["price"], -data["cost"])  
+        DBrequest().update_user(diff, session["user_id"])
+        return render_template("bought.html", data=data)
     else:
       return render_template("buy.html")
 
@@ -185,38 +256,25 @@ def history():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
-    """Log user in"""
-
+  """Log user in"""
+  # User reached route via POST (as by submitting a form via POST)
+  if request.method == "POST":
+    
     # Forget any user_id
     session.clear()
 
-    # User reached route via POST (as by submitting a form via POST)
-    if request.method == "POST":
+    if not RequestValidator(request.form).validate_login():
+      rows = DBrequest().select_username(request.form.get("username"))
 
-        # Ensure username was submitted
-        if not request.form.get("username"):
-            return apology("must provide username", 403)
+      # Remember which user has logged in
+      session["user_id"] = rows[0]["id"]
 
-        # Ensure password was submitted
-        elif not request.form.get("password"):
-            return apology("must provide password", 403)
-
-        # Query database for username
-        rows = DBrequest().select_username(request.form.get("username"))
-
-        # Ensure username exists and password is correct
-        if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
-            return apology("invalid username and/or password", 403)
-
-        # Remember which user has logged in
-        session["user_id"] = rows[0]["id"]
-
-        # Redirect user to home page
-        return redirect("/")
+      # Redirect user to home page
+      return redirect("/")
 
     # User reached route via GET (as by clicking a link or via redirect)
-    else:
-        return render_template("login.html")
+  else:
+      return render_template("login.html")
 
 
 @app.route("/logout")
@@ -237,6 +295,7 @@ def quote():
     if request.method == "POST":
       if request.form.get("symbol"):
         stock = lookup(request.form.get("symbol"))
+        stock["price"] = float(stock["price"])
         if stock:
           return render_template("quoted.html", stock=stock)
         return render_template("quote.html")
@@ -248,24 +307,7 @@ def quote():
 def register():
     if request.method == "POST":
         # Ensure username was submitted
-        if not request.form.get("username"):
-            return apology("must provide username", 403)
-        
-        # Ensure password was submitted
-        elif not request.form.get("password"):
-            return apology("must provide password", 403)
-        
-        # Ensure password was confirmed
-        elif not request.form.get("confirmation"):
-            return apology("must confirm password", 403)
-        
-        elif not request.form.get("password") == request.form.get("confirmation"):
-            return apology("password and confirmed password must be the same", 403)
-        
-        rows = DBrequest().select_username(request.form.get("username"))
-        
-        if len(rows) != 0:
-            return apology("Sorry, there is such username in our database", 403) 
+      if not RequestValidator(request.form).validate_register():
 
         password = request.form.get("password")
         password = generate_password_hash(password, method='pbkdf2:sha256', salt_length=8)
@@ -283,19 +325,9 @@ def register():
 def sell():
     """Sell shares of stock"""
     if request.method == "POST":
-      if not request.form.get("shares") or not request.form.get("symbol"):
-        return apology("request incomplete")
-      elif int(request.form.get("shares")) < 0:
-        return apology("number of shares must be a positive integer")
-      
-      avaliable_shares = DBrequest().select_symbol(session["user_id"], request.form.get("symbol"))
 
-      if len(avaliable_shares) == 0:
-         return apology("you don't have such shares to sell")
-      
-      elif int(avaliable_shares[0]["shares"]) < int(request.form.get("shares")):
-        return apology("you don't have so many shares to sell")
-      else:
+      if not RequestValidator(request.form).validate_sell(session["user_id"]):
+
         price = float((lookup(request.form.get("symbol")))["price"])
         cash = (DBrequest().select_cash(session["user_id"]))[0]["cash"]
         revenue = float(request.form.get("shares")) * price
@@ -307,6 +339,7 @@ def sell():
                 "cash": float(cash),
                 "total": cash+revenue,
         }
+
         DBrequest().insert_transaction(request.form.get("symbol"), session["user_id"], (-int(request.form.get("shares"))), price, revenue)
         DBrequest().update_user((cash+revenue), session["user_id"])
 
