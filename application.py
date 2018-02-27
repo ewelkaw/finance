@@ -86,7 +86,7 @@ class BalanceValidator():
   def validate_cash(self):
     cash = (DBrequest().select_cash(session["user_id"]))[0]["cash"]
     price = round(float((lookup(self.form.get("symbol")))["price"]),2)
-    cost = self.form.get("shares") * price
+    cost = float(self.form.get("shares")) * price
     diff = cash - cost
     if diff < 0:
       return None
@@ -132,42 +132,40 @@ def index():
       stocks.append({
         "symbol": symbol,
         "shares": shares,
-        "price": price, 
-        "total_value": price * shares,
+        "price": float(price), 
+        "total_value": float(price * shares),
           })
-    cash = DBrequest().select_cash(session["user_id"])[0]["cash"]
+    cash = float(DBrequest().select_cash(session["user_id"])[0]["cash"])
     total = total + cash
 
     return render_template("index.html", stocks=stocks, cash=cash, total=total)
 
 
-# @app.route("/buy", methods=["GET", "POST"])
-# @login_required
-# def buy():
-#     """Buy shares of stock"""
-#     if request.method == "POST":
-#       validator = RequestValidator(request.form)
-  
-#       if not validator.validate_buy():
-#         return validator.validate_buy()
-#       if not balance_validator.validate_cash():
-#         return apology("you have not enough money to buy so many stocks")
-#       diff, cost, price = BalanceValidator(request.form).validate_cash()
-      
-#       name = lookup(request.form.get("symbol"))["name"]
+@app.route("/buy", methods=["GET", "POST"])
+@login_required
+def buy():
+    """Buy shares of stock"""
+    if request.method == "POST":
+      if not RequestValidator(request.form).validate_buy():
+        if not BalanceValidator(request.form).validate_cash():
+          return apology("you have not enough money to buy so many stocks")
 
-#       data = {"symbol": request.form.get("symbol"),
-#               "stocks": request.form.get("shares"),
-#               "price":  price,
-#               "cost":   cost,
-#               "cash":   diff,
-#               "total":  (cost+diff),
-#               "name": name,
-#       }
-#       DBrequest().insert_transaction(data["symbol"], session["user_id"], data["stocks"], data["price"], -data["cost"])  
-#       return render_template("bought.html", data=data)
-#     else:
-#       return render_template("buy.html")
+      diff, cost, price = BalanceValidator(request.form).validate_cash()
+      name = lookup(request.form.get("symbol"))["name"]
+
+      data = {"symbol": request.form.get("symbol"),
+              "stocks": request.form.get("shares"),
+              "price":  price,
+              "cost":   cost,
+              "cash":   diff,
+              "total":  (cost+diff),
+              "name": name,
+      }
+      DBrequest().insert_transaction(data["symbol"], session["user_id"], data["stocks"], data["price"], -data["cost"])  
+      DBrequest().update_user(diff, session["user_id"])
+      return render_template("bought.html", data=data)
+    else:
+      return render_template("buy.html")
 
 
 @app.route("/history")
@@ -180,6 +178,8 @@ def history():
         row['transaction'] = "sale"
       else:
         row['transaction'] = "purchase"
+      row["price"] = float(row["price"])
+      row["cost"] = float(row["cost"])
     return render_template("history.html", rows=rows)
 
 
@@ -296,7 +296,7 @@ def sell():
       elif int(avaliable_shares[0]["shares"]) < int(request.form.get("shares")):
         return apology("you don't have so many shares to sell")
       else:
-        price = (lookup(request.form.get("symbol")))["price"]
+        price = float((lookup(request.form.get("symbol")))["price"])
         cash = (DBrequest().select_cash(session["user_id"]))[0]["cash"]
         revenue = float(request.form.get("shares")) * price
         data = {"price": price,
@@ -304,7 +304,7 @@ def sell():
                 "symbol": request.form.get("symbol"),
                 "stocks": request.form.get("shares"),
                 "revenue": revenue,
-                "cash": cash,
+                "cash": float(cash),
                 "total": cash+revenue,
         }
         DBrequest().insert_transaction(request.form.get("symbol"), session["user_id"], (-int(request.form.get("shares"))), price, revenue)
