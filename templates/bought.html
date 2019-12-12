@@ -1,42 +1,39 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Bought
+Bought
 {% endblock %}
 
 {% block main %}
-    <form action="/bought" method="post">
-          <table allign="center" style="width:100%" cellpadding="10"cellspacing="10">
-            <thead>
-              <tr>
-                <th scope="col">Symbol</th>
-                <th scope="col">Name</th>
-                <th scope="col">Shares</th>
-                <th scope="col">Price</th>
-                <th scope="col">TOTAL</th>
-              </tr>
-            </thead>
-            <tr>
-              <td>{{data["name"]}}</td>
-              <td>{{data["symbol"]}}</td>
-              <td>{{data["stocks"]}}</td>
-              <td>{{data["price"]}}</td>
-              <td>{{data["cost"]}}</td>
-            </tr>
-            <tr>
-              <td>CASH</td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td>{{data["cash"]}}</td>
-           </tr>
-           <tr>
-              <td>TOTAL</td>
-              <td></td>
-              <td></td>
-              <td></td>
-              <td>{{data["total"]}}</td>
-           </tr>
-          </table>
-    </form>
+<form action="/bought" method="post">
+  <h2 allign="center" style="width:100%; color:darkslategrey" cellpadding="10" cellspacing="10">Bought</h2>
+  <table allign="center" style="width:100%" cellpadding="10" cellspacing="10">
+    <thead>
+      <tr>
+        <th scope="col">Symbol</th>
+        <th scope="col">Shares</th>
+        <th scope="col">Price</th>
+        <th scope="col">TOTAL</th>
+      </tr>
+    </thead>
+    <tr>
+      <td>{{data["symbol"]}}</td>
+      <td>{{data["stocks"]}}</td>
+      <td>{{data["price"]}}</td>
+      <td>{{data["cost"]}}</td>
+    </tr>
+    <tr>
+      <td>CASH</td>
+      <td></td>
+      <td></td>
+      <td>{{data["cash"]}}</td>
+    </tr>
+    <tr>
+      <td>TOTAL</td>
+      <td></td>
+      <td></td>
+      <td>{{data["total"]}}</td>
+    </tr>
+  </table>
+</form>
 {% endblock %}

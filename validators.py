@@ -1,6 +1,5 @@
-from helpers import apology
 from db_request import DBrequest
-from flask import request, session
+from flask import request, session, render_template
 from werkzeug import check_password_hash, generate_password_hash
 from helpers import lookup
 
@@ -12,85 +11,89 @@ class RequestValidator:
     def validate_buy(self):
         # Ensure you can buy
         if not lookup(self.form.get("symbol")) or not self.form.get("symbol"):
-            return apology("wrong symbol")
+            return False
 
         elif not self.form.get("shares"):
-            return apology("no number of shares")
+            return False
 
         elif int(self.form.get("shares")) < 0:
-            return apology("number of shares must be a positive integer")
+            return False
 
         else:
-            return None
+            return True
 
     def validate_deposit(self):
         # Ensure you can deposit
         if not self.form.get("amount") or float(request.form.get("amount")) <= 0:
-            return apology("wrong request")
+            return False
 
         else:
-            return None
+            return True
 
     def validate_register(self):
         # Ensure you can register
         if not self.form.get("username"):
-            return apology("must provide username", 403)
+            return False
 
         # Ensure password was submitted
         elif not self.form.get("password"):
-            return apology("must provide password", 403)
+            return False
 
         # Ensure password was confirmed
         elif not self.form.get("confirmation"):
-            return apology("must confirm password", 403)
+            return False
 
         elif not self.form.get("password") == self.form.get("confirmation"):
-            return apology("password and confirmed password must be the same", 403)
+            return False
 
-        elif (
-            len(DBrequest().select_username(self.form.get("username")).fetchall()) != 0
-        ):
-            return apology("Sorry, there is such username in our database", 403)
+        elif len(DBrequest().select_username(self.form.get("username"))) != 0:
+            return False
 
         else:
-            return None
+            return True
 
     def validate_login(self):
         # Ensure username was submitted
         if not self.form.get("username"):
-            return apology("must provide username", 403)
+            return False
 
         # Ensure password was submitted
         elif not self.form.get("password"):
-            return apology("must provide password", 403)
+            return False
 
         # Query database for username
-        rows = DBrequest().select_username(self.form).fetchall()
+        rows = DBrequest().select_username(self.form.get("username"))
+
         # Ensure username exists and password is correct
-        if len(rows) != 1 or not check_password_hash(rows[0][2], self.form["password"]):
-            return apology("invalid username and/or password", 403)
+        if len(rows) != 1 or not check_password_hash(
+            rows[0]["hash"], self.form.get("password")
+        ):
+            return False
 
         else:
-            return None
+            return True
 
     def validate_sell(self, id):
         # Ensure you can sell
-        if not self.form.get("shares") or not self.form.get("symbol"):
-            return apology("request incomplete")
+        if (
+            not self.form.get("shares")
+            or not self.form.get("symbol")
+            or self.form.get("symbol") == "0"
+        ):
+            return False
 
         elif int(self.form.get("shares")) < 0:
-            return apology("number of shares must be a positive integer")
+            return False
 
-        avaliable_shares = DBrequest().select_symbol(id, self.form)
+        avaliable_shares = DBrequest().select_symbol(id, self.form.get("symbol"))
+        if len(avaliable_shares) == 0:
+            return False
 
-        if len(avaliable_shares.fetchall()) == 0:
-            return apology("you don't have such shares to sell")
-
-        elif int(avaliable_shares[0][1]) < int(self.form.get("shares")):
-            return apology("you don't have so many shares to sell")
+        elif int(avaliable_shares[0]["shares"]) < int(self.form.get("shares")):
+            return False
 
         else:
-            return None
+            return True
 
 
 class BalanceValidator:
@@ -98,13 +101,13 @@ class BalanceValidator:
         self.form = form
 
     def validate_cash(self):
-        cash = DBrequest().select_cash(session["user_id"]).fetchone()[0]
+        cash = (DBrequest().select_cash(session["user_id"]))[0]["cash"]
         price = round(float((lookup(self.form.get("symbol")))["price"]), 2)
         cost = float(self.form.get("shares")) * price
         diff = cash - cost
 
         if diff < 0:
-            return None
+            return False
 
         else:
             return diff, cost, price

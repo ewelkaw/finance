@@ -1,39 +1,42 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Your wallet
+Your wallet
 {% endblock %}
 
 {% block main %}
-    <form action="/">
-          <table allign="center" style="width:100%" cellpadding="10"cellspacing="10">
-            <thead>
-              <tr>
-                <th scope="col">Symbol </th>
-                <th scope="col">Shares </th>
-                <th scope="col">Today's price</th>
-                <th scope="col">Total value</th>
-              </tr>
-            </thead>
-            {% for stock in stocks %}
-                <td>{{stock.symbol}}</td>
-                <td>{{stock.shares}}</td>
-                <td>{{stock.price}}</td>
-                <td>{{stock.total_value}}</td>
-              <br />
-            {% endfor %}
-            <tr>
-              <td>CASH</td>
-              <td></td>
-              <td></td>
-              <td>{{cash}}</td>
-           </tr>
-           <tr>
-              <td>TOTAL</td>
-              <td></td>
-              <td></td>
-              <td>{{total}}</td>
-           </tr>
-          </table>
-    </form>
+<form action="/">
+  <h2 allign="center" style="width:90%; color:darkslategrey" cellpadding="10" cellspacing="10">Your wallet</h2>
+  <table allign="center" style="width:100%" cellpadding="10" cellspacing="10">
+    <thead>
+      <tr>
+        <th scope="col">Symbol </th>
+        <th scope="col">Shares </th>
+        <th scope="col">Today's price</th>
+        <th scope="col">Total value</th>
+      </tr>
+    </thead>
+    {% for stock in stocks %}
+    <tr>
+      <td>{{stock.symbol}}</td>
+      <td>{{stock.shares}}</td>
+      <td>{{stock.price}}</td>
+      <td>{{stock.total_value}}</td>
+      <br />
+    </tr>
+    {% endfor %}
+    <tr>
+      <td>CASH</td>
+      <td></td>
+      <td></td>
+      <td>{{cash}}</td>
+    </tr>
+    <tr>
+      <td>TOTAL</td>
+      <td></td>
+      <td></td>
+      <td>{{total}}</td>
+    </tr>
+  </table>
+</form>
 {% endblock %}

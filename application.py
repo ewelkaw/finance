@@ -6,7 +6,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 import werkzeug
 
 from validators import RequestValidator, BalanceValidator
-from helpers import apology, login_required, lookup, usd
+from helpers import login_required, lookup, usd
 from db_request import DBrequest
 
 # Configure application
@@ -36,11 +36,11 @@ Session(app)
 def deposit():
     """Deposit money"""
     if request.method == "POST":
-        if not RequestValidator(request.form).validate_deposit():
-            row = DBrequest().select_cash(session["user_id"]).fetchone()
-            cash = round(row[0], 2)
+        if RequestValidator(request.form).validate_deposit():
+            row = DBrequest().select_cash(session["user_id"])
+            cash = round(row[0]["cash"], 2)
             deposit = round(float(request.form.get("amount")), 2)
-            new_cash = round(cash + deposit, 2)
+            new_cash = cash + deposit
 
             DBrequest().update_user(new_cash, session["user_id"])
             data = {
@@ -49,6 +49,8 @@ def deposit():
                 "current_cash": new_cash,
             }
             return render_template("current_balance.html", data=data)
+        else:
+            return render_template("deposit_again.html")
     else:
         return render_template("deposit.html")
 
@@ -60,7 +62,8 @@ def index():
     rows = DBrequest().select_index(session["user_id"])
     stocks = []
     total = 0
-    cash = DBrequest().select_cash(session["user_id"]).fetchone()[0]
+    cash = float(DBrequest().select_cash(session["user_id"])[0]["cash"])
+
     for row in rows:
         symbol = row["symbol"]
         shares = row["shares"]
@@ -74,7 +77,6 @@ def index():
                 "total_value": float(price * shares),
             }
         )
-
     return render_template("index.html", stocks=stocks, cash=cash, total=(total + cash))
 
 
@@ -83,21 +85,23 @@ def index():
 def buy():
     """Buy shares of stock"""
     if request.method == "POST":
-        if not RequestValidator(request.form).validate_buy():
+        if RequestValidator(request.form).validate_buy():
             if not BalanceValidator(request.form).validate_cash():
-                return apology("you have not enough money to buy so many stocks")
+                return render_template("buy_again.html")
 
             diff, cost, price = BalanceValidator(request.form).validate_cash()
-            name = lookup(request.form.get("symbol"))["name"]
+            symbol = request.form.get("symbol")
+            if not symbol:
+                return render_template("buy.html")
+            symbol_name = lookup(symbol)["symbol"]
 
             data = {
-                "symbol": request.form.get("symbol"),
+                "symbol": symbol_name,
                 "stocks": request.form.get("shares"),
                 "price": price,
                 "cost": cost,
                 "cash": diff,
                 "total": (cost + diff),
-                "name": name,
             }
             DBrequest().insert_transaction(
                 data["symbol"],
@@ -108,6 +112,8 @@ def buy():
             )
             DBrequest().update_user(diff, session["user_id"])
             return render_template("bought.html", data=data)
+        else:
+            return render_template("buy_again.html")
     else:
         return render_template("buy.html")
 
@@ -115,25 +121,16 @@ def buy():
 @app.route("/history")
 @login_required
 def history():
-    rows = map(
-        lambda x: list(x),
-        DBrequest().select_all("transactions", session["user_id"]).fetchall(),
-    )
-    updated_rows = []
-    for idx, row in enumerate(rows):
-        transaction = "sale" if row[3] < 0 else "purchase"
-        updated_row = {
-            "id": row[0],
-            "symbol": row[1],
-            "amount": row[3],
-            "price": float(row[4]),
-            "cost": float(row[5]),
-            "transaction": transaction,
-            "date": row[6],
-        }
-        updated_rows.append(updated_row)
-    print("rows:", updated_rows)
-    return render_template("history.html", rows=updated_rows)
+    rows = DBrequest().select_all("transactions", session["user_id"])
+
+    for row in rows:
+        if row["amount"] < 0:
+            row["transaction"] = "sale"
+        else:
+            row["transaction"] = "purchase"
+        row["price"] = float(row["price"])
+        row["cost"] = float(row["cost"])
+    return render_template("history.html", rows=rows)
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -145,14 +142,16 @@ def login():
         # Forget any user_id
         session.clear()
 
-        if not RequestValidator(request.form).validate_login():
-            print("here 1")
-            rows = DBrequest().select_username(request.form).fetchall()
+        if RequestValidator(request.form).validate_login():
+            rows = DBrequest().select_username(request.form.get("username"))
+
             # Remember which user has logged in
-            session["user_id"] = rows[0][0]
+            session["user_id"] = rows[0]["id"]
 
             # Redirect user to home page
             return redirect("/")
+        else:
+            return render_template("login_again.html")
 
         # User reached route via GET (as by clicking a link or via redirect)
     else:
@@ -167,7 +166,7 @@ def logout():
     session.clear()
 
     # Redirect user to login form
-    return redirect("/")
+    return render_template("login.html")
 
 
 @app.route("/quote", methods=["GET", "POST"])
@@ -175,11 +174,13 @@ def logout():
 def quote():
     """Get stock quote."""
     if request.method == "POST":
-        if request.form.get("symbol"):
+        if request.form.get("symbol") and request.form.get("symbol") != "0":
             stock = lookup(request.form.get("symbol"))
             stock["price"] = float(stock["price"])
             if stock:
                 return render_template("quoted.html", stock=stock)
+            return render_template("quote.html")
+        else:
             return render_template("quote.html")
     else:
         return render_template("quote.html")
@@ -189,17 +190,19 @@ def quote():
 def register():
     if request.method == "POST":
         # Ensure username was submitted
-        if not RequestValidator(request.form).validate_register():
+        if RequestValidator(request.form).validate_register():
 
             password = request.form.get("password")
             password = generate_password_hash(
                 password, method="pbkdf2:sha256", salt_length=8
             )
 
-            DBrequest().insert_hash(request.form, password)
+            DBrequest().insert_hash(request.form.get("username"), password)
 
             # Redirect user to login page
             return redirect("/login")
+        else:
+            return render_template("register_again.html")
 
     else:
         return render_template("register.html")
@@ -211,15 +214,14 @@ def sell():
     """Sell shares of stock"""
     if request.method == "POST":
 
-        if not RequestValidator(request.form).validate_sell(session["user_id"]):
-
-            price = float((lookup(request.form.get("symbol")))["price"])
+        if RequestValidator(request.form).validate_sell(session["user_id"]):
+            symbol = request.form.get("symbol")
+            price = float((lookup(symbol))["price"])
             cash = (DBrequest().select_cash(session["user_id"]))[0]["cash"]
             revenue = float(request.form.get("shares")) * price
             data = {
                 "price": price,
-                "name": lookup(request.form.get("symbol"))["name"],
-                "symbol": request.form.get("symbol"),
+                "symbol": symbol,
                 "stocks": request.form.get("shares"),
                 "revenue": revenue,
                 "cash": float(cash),
@@ -227,7 +229,7 @@ def sell():
             }
 
             DBrequest().insert_transaction(
-                request.form.get("symbol"),
+                symbol,
                 session["user_id"],
                 (-int(request.form.get("shares"))),
                 price,
@@ -236,15 +238,7 @@ def sell():
             DBrequest().update_user((cash + revenue), session["user_id"])
 
             return render_template("sold.html", data=data)
+        else:
+            return render_template("sell_again.html")
     else:
         return render_template("sell.html")
-
-
-def errorhandler(e):
-    """Handle error"""
-    return apology(e.name, e.code)
-
-
-# listen for errors
-for code in default_exceptions:
-    app.errorhandler(code)(errorhandler)

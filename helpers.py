@@ -5,42 +5,32 @@ from flask import redirect, render_template, request, session
 from functools import wraps
 
 
-def apology(message, code=400):
-    """Renders message as an apology to user."""
-    def escape(s):
-        """
-        Escape special characters.
-
-        https://github.com/jacebrowning/memegen#special-characters
-        """
-        for old, new in [("-", "--"), (" ", "-"), ("_", "__"), ("?", "~q"),
-                         ("%", "~p"), ("#", "~h"), ("/", "~s"), ("\"", "''")]:
-            s = s.replace(old, new)
-        return s
-    return render_template("apology.html", top=code, bottom=escape(message)), code
-
-
 def login_required(f):
     """
     Decorate routes to require login.
 
     http://flask.pocoo.org/docs/0.12/patterns/viewdecorators/
     """
+
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if session.get("user_id") is None:
             return redirect("/login")
         return f(*args, **kwargs)
+
     return decorated_function
 
 
 def lookup(symbol):
-
-    return {
-            "name": "GOOG",
-            "price": 10,
-            "symbol": "GOOG"
+    data = {
+        "goog": {"price": 10, "symbol": "goog"},
+        "cgi": {"price": 20, "symbol": "cgi"},
+        "amz": {"price": 15, "symbol": "amz"},
+        "zewa": {"price": 25, "symbol": "zewa"},
     }
+    if symbol in data:
+        print("lookup data", data[symbol])
+        return data[symbol]
 
     """Look up quote for symbol."""
 
@@ -73,11 +63,7 @@ def lookup(symbol):
             return None
 
         # Return stock's name (as a str), price (as a float), and (uppercased) symbol (as a str)
-        return {
-            "name": row[1],
-            "price": price,
-            "symbol": row[0].upper()
-        }
+        return {"name": row[1], "price": price, "symbol": row[0].upper()}
 
     except:
         pass
@@ -109,7 +95,7 @@ def lookup(symbol):
         return {
             "name": symbol.upper(),  # for backward compatibility with Yahoo
             "price": price,
-            "symbol": symbol.upper()
+            "symbol": symbol.upper(),
         }
 
     except:
