@@ -1,15 +1,23 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Buy
+Buy
 {% endblock %}
 
 {% block main %}
-    <form action="/buy" method="post">
-        <div class="form-group">
-            <input autocomplete="off" autofocus class="form-control" name="symbol" placeholder="Stock symbol" type="text"/>
-            <input autocomplete="off" autofocus class="form-control" name="shares" placeholder="Stocks number" type="number"/>
-        </div>
-        <button class="btn btn-primary" type="submit">Buy</button>
-    </form>
+<form action="/buy" method="post">
+    <h2 allign="center" style="width:100%; color:darkslategrey" cellpadding="10" cellspacing="10">Buy</h2>
+    <div class="form-group">
+        <select name="symbol" autofocus=True>
+            <option value="0">choose symbol</option>
+            <option value="goog">goog</option>
+            <option value="cgi">cgi</option>
+            <option value="amz">amz</option>
+            <option value="zewa">zewa</option>
+        </select>
+        <input autocomplete="off" autofocus class="form-control" name="shares" placeholder="Stocks number"
+            type="number" />
+    </div>
+    <button class="btn btn-primary" type="submit">Buy</button>
+</form>
 {% endblock %}

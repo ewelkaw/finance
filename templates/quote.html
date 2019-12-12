@@ -1,14 +1,21 @@
 {% extends "layout.html" %}
 
 {% block title %}
-    Register
+Register
 {% endblock %}
 
 {% block main %}
-    <form action="/quote" method="post">
-        <div class="form-group">
-            <input autocomplete="off" autofocus class="form-control" name="symbol" placeholder="Stock symbol" type="text"/>
-        </div>
-        <button class="btn btn-primary" type="submit">Find</button>
-    </form>
+<form action="/quote" method="post">
+    <h2 allign="center" style="width:100%; color:darkslategrey" cellpadding="10" cellspacing="10">Check symbol</h2>
+    <div class="form-group">
+        <select name="symbol" autofocus=True>
+            <option value="0">Symbols</option>
+            <option value="goog">goog</option>
+            <option value="cgi">cgi</option>
+            <option value="amz">amz</option>
+            <option value="zewa">zewa</option>
+        </select>
+    </div>
+    <button class="btn btn-primary" type="submit">Find</button>
+</form>
 {% endblock %}
