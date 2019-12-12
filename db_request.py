@@ -1,11 +1,11 @@
-# import sqlite3 as SQL
-
 from cs50 import SQL
+from pathlib import Path
 
 # Configure CS50 Library to use SQLite database
+FINANCE_DB = Path(__file__).parent.absolute().joinpath("finance.db")
+if not FINANCE_DB.exists():
+    FINANCE_DB.touch()
 db = SQL("sqlite:///finance.db")
-# con = SQL.connect("finance.db")
-# db = con.cursor()
 
 
 class DBrequest:
@@ -59,3 +59,15 @@ class DBrequest:
             username=username,
             hash=hash,
         )
+
+
+if __name__ == "__main__":
+    print("Database is cleaned and prepared...")
+    db.execute("DROP TABLE IF EXISTS users;")
+    db.execute("DROP TABLE IF EXISTS transactions;")
+    db.execute(
+        "CREATE TABLE 'users' ('id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 'username' TEXT NOT NULL, 'hash' TEXT NOT NULL, 'cash' NUMERIC NOT NULL DEFAULT 10000.00 );"
+    )
+    db.execute(
+        "CREATE TABLE 'transactions' ('id' INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 'symbol' TEXT NOT NULL,  'userid' NUMERIC NOT NULL, 'amount' NUMERIC NOT NULL, 'price' NUMERIC NOT NULL, 'cost' NUMERIC NOT NULL, 'date' TIMESTAMP DEFAULT CURRENT_TIMESTAMP);"
+    )
